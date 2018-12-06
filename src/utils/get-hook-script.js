@@ -144,101 +144,201 @@ function createGitScript(normalizedPath, hookName, npmScriptName, verifyMessage)
 
 function createHgScript(normalizedPath, hookName, npmScriptName, verifyMessage)
 {
-  return [
-    stripIndent(
-      `
-        #!/usr/bin/python
-        #husky ${pkg.version}
-        import os
-        import sys
-        import re
-        import subprocess
+  if (process.platform === 'win32') { 
+    return [
+      stripIndent(
+        `
+          #!/usr/bin/python
+          #husky ${pkg.version}
+          import os
+          import sys
+          import re
+          import subprocess
 
-        pfx = 'husky > '
+          pfx = 'husky > '
 
-        def print_msg(msg):
-          print pfx + msg
+          def print_msg(msg):
+            print pfx + msg
 
-        def print_error_msg(msg):
-          print >> sys.stderr, pfx + msg
+          def print_error_msg(msg):
+            print >> sys.stderr, pfx + msg
 
-        def has_cmd(cmd):
-          def is_exe(fp):
-            return os.path.isfile(fp) and os.access(fp, os.X_OK)
+          def has_cmd(cmd):
+            def is_exe(fp):
+              return os.path.isfile(fp) and os.access(fp, os.X_OK)
 
-          fp, fn = os.path.split(cmd)
+            fp, fn = os.path.split(cmd)
 
-          if fp:
-            if is_exe(cmd):
-              return True
-          else:
-            for path in os.environ['PATH'].split(os.pathsep):
-              fn = os.path.join(path, cmd)
-              if is_exe(fn):
+            if fp:
+              if is_exe(cmd):
                 return True
-
-          return False
-
-        def execute_cmd(cmd, show_output = False):
-          try:
-            FNULL = os.open(os.devnull, os.O_WRONLY)
-            if show_output:
-              return subprocess.check_call(cmd, stdin=FNULL) == 0
             else:
-              return subprocess.check_call(cmd, stdin=FNULL, stdout=FNULL, stderr=FNULL) == 0
-          except (OSError, subprocess.CalledProcessError) as e:
-            print_error_msg(str(e))
+              for path in os.environ['PATH'].split(os.pathsep):
+                fn = os.path.join(path, cmd)
+                if is_exe(fn):
+                  return True
+
             return False
 
-        def has_hook_script(hookName):
-          if re.search('"' + hookName + '"\\s*:', open('package.json').read()):
-            return True
-          return False
+          def execute_cmd(cmd, show_output = False):
+            try:
+              FNULL = os.open(os.devnull, os.O_WRONLY)
+              if show_output:
+                return subprocess.check_call(cmd, stdin=FNULL, Shell=True) == 0
+              else:
+                return subprocess.check_call(cmd, stdin=FNULL, stdout=FNULL, stderr=FNULL, Shell=True) == 0
+            except (OSError, subprocess.CalledProcessError) as e:
+              print_error_msg(str(e))
+              return False
 
-        def has_file(fn):
-          return os.path.isfile(fn)
+          def has_hook_script(hookName):
+            if re.search('"' + hookName + '"\\s*:', open('package.json').read()):
+              return True
+            return False
 
-        def use_nvm(fn):
-          # if no project file is here, return
-          if has_file('.nvmrc') is False:
-            return
+          def has_file(fn):
+            return os.path.isfile(fn)
 
-          # if nvm is in PATH, use it
-          if has_cmd('nvm') is True:
-            execute_cmd(['nvm', 'use'])
-            return
+          def use_nvm(fn):
+            # if no project file is here, return
+            if has_file('.nvmrc') is False:
+              return
 
-          # with a shell, try to source it
-          execute_cmd(['sh', '-c', 'source ' + fn + ' && nvm use'])
+            # if nvm is in PATH, use it
+            if has_cmd('nvm') is True:
+              execute_cmd(['nvm', 'use'])
+              return
+
+            # with a shell, try to source it
+            execute_cmd(['sh', '-c', 'source ' + fn + ' && nvm use'])
 
 
-        def execute_hook(ui, repo, hooktype, **kwargs):
-          os.chdir('${normalizedPath}')
+          def execute_hook(ui, repo, hooktype, **kwargs):
+            os.chdir('${normalizedPath}')
 
-          # check if a precommit hook is set
-          if has_hook_script('${npmScriptName}') is False:
-            return False`
-    ).trim(),
+            # check if a precommit hook is set
+            if has_hook_script('${npmScriptName}') is False:
+              return False`
+      ).trim(),
 
-    hgPlatformSpecific(),
+      hgPlatformSpecific(),
 
-    stripIndent(
-      `
-    # comment for indent
-      # check if npm is available
-      if has_cmd('npm') is False:
-        print_error_msg('can\\'t find npm in PATH, skipping precommit script in package.json')
-        return True
+      stripIndent(
+        `
+      # comment for indent
+        # check if npm is available
+        if has_cmd('npm') is False:
+          print_error_msg('can\\'t find npm in PATH, skipping precommit script in package.json')
+          return True
 
-      # export arguments for husky
-      os.environ['HG_ARGS'] = ' '.join(sys.argv)
+        # export arguments for husky
+        os.environ['HG_ARGS'] = ' '.join(sys.argv)
 
-      npm_cmd = ['npm', 'run', '-s', '${npmScriptName}']
-      print_msg(' '.join(npm_cmd) + '\\n')
+        npm_cmd = ['npm', 'run', '-s', '${npmScriptName}']
+        print_msg(' '.join(npm_cmd) + '\\n')
 
-      if execute_cmd(npm_cmd, True) is False:
-        print_error_msg('${hookName} hook failed ${verifyMessage}')
-        return True`
-    )
-  ].join('\n')
+        if execute_cmd(npm_cmd, True) is False:
+          print_error_msg('${hookName} hook failed ${verifyMessage}')
+          return True`
+      )
+    ].join('\n')
+  } else {
+    return [
+      stripIndent(
+        `
+          #!/usr/bin/python
+          #husky ${pkg.version}
+          import os
+          import sys
+          import re
+          import subprocess
+
+          pfx = 'husky > '
+
+          def print_msg(msg):
+            print pfx + msg
+
+          def print_error_msg(msg):
+            print >> sys.stderr, pfx + msg
+
+          def has_cmd(cmd):
+            def is_exe(fp):
+              return os.path.isfile(fp) and os.access(fp, os.X_OK)
+
+            fp, fn = os.path.split(cmd)
+
+            if fp:
+              if is_exe(cmd):
+                return True
+            else:
+              for path in os.environ['PATH'].split(os.pathsep):
+                fn = os.path.join(path, cmd)
+                if is_exe(fn):
+                  return True
+
+            return False
+
+          def execute_cmd(cmd, show_output = False):
+            try:
+              FNULL = os.open(os.devnull, os.O_WRONLY)
+              if show_output:
+                return subprocess.check_call(cmd, stdin=FNULL) == 0
+              else:
+                return subprocess.check_call(cmd, stdin=FNULL, stdout=FNULL, stderr=FNULL) == 0
+            except (OSError, subprocess.CalledProcessError) as e:
+              print_error_msg(str(e))
+              return False
+
+          def has_hook_script(hookName):
+            if re.search('"' + hookName + '"\\s*:', open('package.json').read()):
+              return True
+            return False
+
+          def has_file(fn):
+            return os.path.isfile(fn)
+
+          def use_nvm(fn):
+            # if no project file is here, return
+            if has_file('.nvmrc') is False:
+              return
+
+            # if nvm is in PATH, use it
+            if has_cmd('nvm') is True:
+              execute_cmd(['nvm', 'use'])
+              return
+
+            # with a shell, try to source it
+            execute_cmd(['sh', '-c', 'source ' + fn + ' && nvm use'])
+
+
+          def execute_hook(ui, repo, hooktype, **kwargs):
+            os.chdir('${normalizedPath}')
+
+            # check if a precommit hook is set
+            if has_hook_script('${npmScriptName}') is False:
+              return False`
+      ).trim(),
+
+      hgPlatformSpecific(),
+
+      stripIndent(
+        `
+      # comment for indent
+        # check if npm is available
+        if has_cmd('npm') is False:
+          print_error_msg('can\\'t find npm in PATH, skipping precommit script in package.json')
+          return True
+
+        # export arguments for husky
+        os.environ['HG_ARGS'] = ' '.join(sys.argv)
+
+        npm_cmd = ['npm', 'run', '-s', '${npmScriptName}']
+        print_msg(' '.join(npm_cmd) + '\\n')
+
+        if execute_cmd(npm_cmd, True) is False:
+          print_error_msg('${hookName} hook failed ${verifyMessage}')
+          return True`
+      )
+    ].join('\n')
+  }
 }
